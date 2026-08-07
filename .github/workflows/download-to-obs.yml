@@ -52,9 +52,10 @@ jobs:
 
       - name: Configure hcloud
         run: |
-          echo "y" | hcloud config set cli-region ${{ inputs.region }}
-          echo "y" | hcloud config set ak ${{ secrets.OBS_AK }}
-          echo "y" | hcloud config set sk ${{ secrets.OBS_SK }}
+          echo "y" | hcloud --help > /dev/null 2>&1
+          hcloud config set cli-region=${{ inputs.region }}
+          hcloud config set ak=${{ secrets.OBS_AK }}
+          hcloud config set sk=${{ secrets.OBS_SK }}
 
       - name: Download and upload
         run: |
