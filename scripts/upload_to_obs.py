@@ -52,9 +52,11 @@ def upload_to_obs(local_path, obs_key, bucket, ak, sk, endpoint, region, expire_
         expire_seconds = expire_days * 86400
         signed_resp = obs.createSignedUrl('GET', bucket, key, expires=expire_seconds)
         signed_url = signed_resp.get('signedUrl')
+
+        Path("/tmp/download_link.txt").write_text(signed_url + "\n")
         print(f"\n{'='*60}")
         print(f"7-day download link (auto-deletes in {expire_days} days):")
-        print(f"{signed_url}")
+        print(f"See artifact: download_link.txt")
         print(f"{'='*60}\n")
 
         return signed_url
