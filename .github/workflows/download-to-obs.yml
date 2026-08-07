@@ -45,7 +45,7 @@ jobs:
 
       - name: Install hcloud CLI
         run: |
-          curl -sL https://obs-cn-north-4.myhuaweicloud.com/cli/latest/huaweicloud-cli-linux-amd64.tar.gz -o /tmp/hcloud.tar.gz
+          curl -sL "https://ap-southeast-3-hwcloudcli.obs.ap-southeast-3.myhuaweicloud.com/cli/latest/huaweicloud-cli-linux-amd64.tar.gz" -o /tmp/hcloud.tar.gz
           tar xzf /tmp/hcloud.tar.gz -C /tmp
           echo "/tmp/hcloud" >> $GITHUB_PATH
 
