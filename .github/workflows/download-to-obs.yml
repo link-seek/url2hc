@@ -43,6 +43,18 @@ jobs:
       - name: Install OBS SDK
         run: pip install esdk-obs-python
 
+      - name: Install hcloud CLI
+        run: |
+          curl -sL https://obs-cn-north-4.myhuaweicloud.com/cli/latest/huaweicloud-cli-linux-amd64.tar.gz -o /tmp/hcloud.tar.gz
+          tar xzf /tmp/hcloud.tar.gz -C /tmp
+          echo "/tmp/hcloud" >> $GITHUB_PATH
+
+      - name: Configure hcloud
+        run: |
+          hcloud config set cli-region ${{ inputs.region }}
+          hcloud config set ak ${{ secrets.OBS_AK }}
+          hcloud config set sk ${{ secrets.OBS_SK }}
+
       - name: Download and upload
         run: |
           CMD="python scripts/upload_to_obs.py --url '${{ inputs.url }}' --bucket '${{ inputs.bucket }}' --region '${{ inputs.region }}'"
@@ -54,10 +66,3 @@ jobs:
           fi
           echo "Running: $CMD"
           eval $CMD
-
-      - name: Upload download link
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: download-link
-          path: /tmp/download_link.txt
