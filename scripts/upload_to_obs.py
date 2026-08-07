@@ -49,10 +49,14 @@ def main():
     parser.add_argument("--obs-key", default="", help="OBS target key (default: filename from URL)")
     parser.add_argument("--bucket", default="xieyucheng", help="OBS bucket name")
     parser.add_argument("--region", default="cn-north-9", help="OBS region")
-    parser.add_argument("--obs-ak", default=os.environ.get("OBS_AK"), required=True)
-    parser.add_argument("--obs-sk", default=os.environ.get("OBS_SK"), required=True)
+    parser.add_argument("--obs-ak", default=os.environ.get("OBS_AK"), help="OBS AK (or env OBS_AK)")
+    parser.add_argument("--obs-sk", default=os.environ.get("OBS_SK"), help="OBS SK (or env OBS_SK)")
     parser.add_argument("--header", action="append", default=[], help="Extra header, e.g. 'Authorization: Bearer xxx'")
     args = parser.parse_args()
+
+    if not args.obs_ak or not args.obs_sk:
+        print("Error: --obs-ak and --obs-sk are required (or set OBS_AK/OBS_SK env vars)")
+        sys.exit(2)
 
     endpoint = f"obs.{args.region}.myhuaweicloud.com"
 
