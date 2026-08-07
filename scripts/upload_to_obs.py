@@ -23,7 +23,7 @@ def download_file(url, output_path, headers=None):
     return size
 
 
-def upload_to_obs(local_path, obs_key, bucket, ak, sk, endpoint, region):
+def upload_to_obs(local_path, obs_key, bucket, ak, sk, endpoint, region, expire_days=7):
     from obs import ObsClient
     obs = ObsClient(access_key_id=ak, secret_access_key=sk, server=endpoint)
 
@@ -35,6 +35,17 @@ def upload_to_obs(local_path, obs_key, bucket, ak, sk, endpoint, region):
         print(f"Upload OK: status={resp.status}")
         obs_url = f"https://{bucket}.obs.{region}.myhuaweicloud.com/{key}"
         print(f"OBS URL: {obs_url}")
+
+        expire_seconds = expire_days * 86400
+        signed_resp = obs.createSignedUrl(bucket, key, expires=expire_seconds, method='GET')
+        if signed_resp.status < 300:
+            print(f"\n{'='*60}")
+            print(f"7-day download link (expires in {expire_days} days):")
+            print(f"{signed_resp.body.signedUrl}")
+            print(f"{'='*60}\n")
+        else:
+            print(f"Signed URL FAILED: status={signed_resp.status}")
+
         return obs_url
     else:
         print(f"Upload FAILED: status={resp.status}, reason={resp.reason}")
