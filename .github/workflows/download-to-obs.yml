@@ -54,3 +54,10 @@ jobs:
           fi
           echo "Running: $CMD"
           eval $CMD
+
+      - name: Upload download link artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: download-link
+          path: /tmp/download_link.txt
+          retention-days: 7
