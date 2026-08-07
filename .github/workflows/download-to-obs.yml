@@ -7,7 +7,7 @@ on:
         description: 'URL to download'
         required: true
       obs_key:
-        description: 'OBS target key (default: 下载/<filename>)'
+        description: 'Path under 下载/ (default: <filename>)'
         required: false
         default: ''
       bucket:
