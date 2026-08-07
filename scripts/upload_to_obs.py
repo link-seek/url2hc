@@ -45,46 +45,45 @@ def download_file(url, output_path, headers=None):
     return size
 
 
-def upload_to_obs(local_path, obs_key, bucket, ak, sk, security_token, endpoint, region, expire_days=7):
+def upload_and_sign(local_path, obs_key, bucket, sts_ak, sts_sk, sts_token, perm_ak, perm_sk, endpoint, region, expire_days=7):
     from obs import ObsClient, Lifecycle, Rule, Expiration
-    obs = ObsClient(access_key_id=ak, secret_access_key=sk, server=endpoint, security_token=security_token)
+
+    obs_sts = ObsClient(access_key_id=sts_ak, secret_access_key=sts_sk, server=endpoint, security_token=sts_token)
+    obs_perm = ObsClient(access_key_id=perm_ak, secret_access_key=perm_sk, server=endpoint)
 
     print(f"Uploading to OBS: {bucket}/{obs_key}")
-
-    resp = obs.putFile(bucket, obs_key, str(local_path))
+    resp = obs_sts.putFile(bucket, obs_key, str(local_path))
     if resp.status < 300:
-        print(f"Upload OK: status={resp.status}")
-
-        lc_resp = obs.getBucketLifecycle(bucket)
-        has_rule = False
-        if lc_resp.status < 300 and lc_resp.body:
-            rules = lc_resp.body.get('lifecycleConfig', {}).get('rule', [])
-            for r in rules:
-                if r.get('id') == 'auto-delete-download-7d':
-                    has_rule = True
-                    break
-        if not has_rule:
-            rule = Rule(id='auto-delete-download-7d', prefix='下载/', status='Enabled', expiration=Expiration(days=expire_days))
-            obs.setBucketLifecycle(bucket, Lifecycle(rule=[rule]))
-            print(f"Lifecycle rule set: 下载/ auto-delete after {expire_days} days")
-        else:
-            print(f"Lifecycle rule already exists: 下载/ auto-delete after {expire_days} days")
-
-        expire_seconds = expire_days * 86400
-        signed_resp = obs.createSignedUrl('GET', bucket, obs_key, expires=expire_seconds)
-        signed_url = signed_resp.get('signedUrl')
-
-        print(f"\n{'='*60}")
-        print(f"7-day download link (auto-deletes in {expire_days} days):")
-        print(f"{signed_url}")
-        print(f"{'='*60}\n")
-
-        return signed_url
+        print(f"Upload OK: status={resp.status} (via STS temp AK={sts_ak})")
     else:
         print(f"Upload FAILED: status={resp.status}, reason={resp.reason}")
         if resp.body:
             print(f"  Body: {resp.body}")
         sys.exit(1)
+
+    lc_resp = obs_perm.getBucketLifecycle(bucket)
+    has_rule = False
+    if lc_resp.status < 300 and lc_resp.body:
+        rules = lc_resp.body.get('lifecycleConfig', {}).get('rule', [])
+        for r in rules:
+            if r.get('id') == 'auto-delete-download-7d':
+                has_rule = True
+                break
+    if not has_rule:
+        rule = Rule(id='auto-delete-download-7d', prefix='下载/', status='Enabled', expiration=Expiration(days=expire_days))
+        obs_perm.setBucketLifecycle(bucket, Lifecycle(rule=[rule]))
+        print(f"Lifecycle rule set: 下载/ auto-delete after {expire_days} days")
+    else:
+        print(f"Lifecycle rule already exists: 下载/ auto-delete after {expire_days} days")
+
+    signed_resp = obs_perm.createSignedUrl('GET', bucket, obs_key, expires=expire_days * 86400)
+    signed_url = signed_resp.get('signedUrl')
+
+    Path("/tmp/download_link.txt").write_text(signed_url + "\n")
+    print(f"\n{'='*60}")
+    print(f"7-day download link (auto-deletes in {expire_days} days):")
+    print(f"  >> See artifact: download-link/download_link.txt <<")
+    print(f"{'='*60}\n")
 
 
 def main():
@@ -123,7 +122,8 @@ def main():
     temp_ak, temp_sk, temp_token = get_sts_credentials(args.obs_ak, args.obs_sk, args.region)
     print(f"STS OK: temp AK={temp_ak}")
 
-    upload_to_obs(output_path, key, args.bucket, temp_ak, temp_sk, temp_token, endpoint, args.region)
+    upload_and_sign(output_path, key, args.bucket, temp_ak, temp_sk, temp_token,
+                    args.obs_ak, args.obs_sk, endpoint, args.region)
 
     output_path.unlink(missing_ok=True)
     print("Done!")
