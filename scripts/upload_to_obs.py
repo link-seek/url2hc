@@ -37,7 +37,7 @@ def upload_to_obs(local_path, obs_key, bucket, ak, sk, endpoint, region, expire_
         print(f"OBS URL: {obs_url}")
 
         expire_seconds = expire_days * 86400
-        signed_resp = obs.createSignedUrl(bucket, key, expires=expire_seconds, method='GET')
+        signed_resp = obs.createSignedUrl(bucket, key, expires=expire_seconds)
         if signed_resp.status < 300:
             print(f"\n{'='*60}")
             print(f"7-day download link (expires in {expire_days} days):")
