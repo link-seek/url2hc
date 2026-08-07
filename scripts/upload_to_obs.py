@@ -1,33 +1,12 @@
 #!/usr/bin/env python3
-"""下载 URL 文件并上传到华为云 OBS，使用 STS 临时凭证生成预签名 URL"""
+"""下载 URL 文件并上传到华为云 OBS，预签名 URL 输出到 artifact（避免掩码）"""
 
 import argparse
 import os
 import sys
-import json
 import subprocess
 from pathlib import Path
 from urllib.parse import urlparse
-
-
-def get_sts_credentials(ak, sk, region, agency_name, domain_name, duration=3600):
-    result = subprocess.run([
-        "hcloud", "iam", "CreateTemporaryAccessKeyByAgency",
-        f"--cli-region={region}",
-        "--auth.identity.methods.1=assume_role",
-        f"--auth.identity.assume_role.agency_name={agency_name}",
-        f"--auth.identity.assume_role.domain_name={domain_name}",
-        f"--auth.identity.assume_role.duration_seconds={duration}"
-    ], capture_output=True, text=True, input="y\n")
-    if result.returncode != 0:
-        print(f"STS FAILED (rc={result.returncode})")
-        print(f"  stdout: {result.stdout[:500]}")
-        print(f"  stderr: {result.stderr[:500]}")
-        sys.exit(1)
-    print(f"STS raw output: {result.stdout[:200]}")
-    data = json.loads(result.stdout)
-    c = data["credential"]
-    return c["access"], c["secret"], c["securitytoken"]
 
 
 def download_file(url, output_path, headers=None):
@@ -43,9 +22,9 @@ def download_file(url, output_path, headers=None):
     return size
 
 
-def upload_to_obs(local_path, obs_key, bucket, ak, sk, security_token, endpoint, region, expire_days=7):
+def upload_to_obs(local_path, obs_key, bucket, ak, sk, endpoint, region, expire_days=7):
     from obs import ObsClient, Lifecycle, Rule, Expiration
-    obs = ObsClient(access_key_id=ak, secret_access_key=sk, server=endpoint, security_token=security_token)
+    obs = ObsClient(access_key_id=ak, secret_access_key=sk, server=endpoint)
 
     print(f"Uploading to OBS: {bucket}/{obs_key}")
 
@@ -72,9 +51,10 @@ def upload_to_obs(local_path, obs_key, bucket, ak, sk, security_token, endpoint,
         signed_resp = obs.createSignedUrl('GET', bucket, obs_key, expires=expire_seconds)
         signed_url = signed_resp.get('signedUrl')
 
+        Path("/tmp/download_link.txt").write_text(signed_url + "\n")
         print(f"\n{'='*60}")
         print(f"7-day download link (auto-deletes in {expire_days} days):")
-        print(f"{signed_url}")
+        print(f"  >> See artifact: download-link/download_link.txt <<")
         print(f"{'='*60}\n")
 
         return signed_url
@@ -86,15 +66,13 @@ def upload_to_obs(local_path, obs_key, bucket, ak, sk, security_token, endpoint,
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Download URL and upload to OBS via STS")
+    parser = argparse.ArgumentParser(description="Download URL and upload to OBS")
     parser.add_argument("--url", required=True, help="URL to download")
     parser.add_argument("--obs-key", default="", help="Path under 下载/ (default: <filename>)")
     parser.add_argument("--bucket", default="xieyucheng", help="OBS bucket name")
     parser.add_argument("--region", default="cn-north-9", help="OBS region")
     parser.add_argument("--obs-ak", default=os.environ.get("OBS_AK"), help="OBS AK (or env OBS_AK)")
     parser.add_argument("--obs-sk", default=os.environ.get("OBS_SK"), help="OBS SK (or env OBS_SK)")
-    parser.add_argument("--agency-name", default="obs-sts-download", help="IAM agency name")
-    parser.add_argument("--domain-name", default="hwstaff_l00392796", help="IAM domain name")
     parser.add_argument("--header", action="append", default=[], help="Extra header")
     args = parser.parse_args()
 
@@ -119,13 +97,7 @@ def main():
     else:
         key = f"下载/{filename}"
 
-    print("Getting STS temporary credentials...")
-    temp_ak, temp_sk, temp_token = get_sts_credentials(
-        args.obs_ak, args.obs_sk, args.region, args.agency_name, args.domain_name
-    )
-    print(f"STS OK: temp AK={temp_ak}")
-
-    upload_to_obs(output_path, key, args.bucket, temp_ak, temp_sk, temp_token, endpoint, args.region)
+    upload_to_obs(output_path, key, args.bucket, args.obs_ak, args.obs_sk, endpoint, args.region)
 
     output_path.unlink(missing_ok=True)
     print("Done!")
