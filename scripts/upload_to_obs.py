@@ -18,7 +18,7 @@ def get_sts_credentials(ak, sk, region, agency_name, domain_name, duration=3600)
         f"--auth.identity.assume_role.agency_name={agency_name}",
         f"--auth.identity.assume_role.domain_name={domain_name}",
         f"--auth.identity.assume_role.duration_seconds={duration}"
-    ], capture_output=True, text=True)
+    ], capture_output=True, text=True, input="y\n")
     if result.returncode != 0:
         print(f"STS FAILED: {result.stderr}")
         sys.exit(1)
