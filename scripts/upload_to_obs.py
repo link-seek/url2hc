@@ -20,8 +20,11 @@ def get_sts_credentials(ak, sk, region, agency_name, domain_name, duration=3600)
         f"--auth.identity.assume_role.duration_seconds={duration}"
     ], capture_output=True, text=True, input="y\n")
     if result.returncode != 0:
-        print(f"STS FAILED: {result.stderr}")
+        print(f"STS FAILED (rc={result.returncode})")
+        print(f"  stdout: {result.stdout[:500]}")
+        print(f"  stderr: {result.stderr[:500]}")
         sys.exit(1)
+    print(f"STS raw output: {result.stdout[:200]}")
     data = json.loads(result.stdout)
     c = data["credential"]
     return c["access"], c["secret"], c["securitytoken"]
