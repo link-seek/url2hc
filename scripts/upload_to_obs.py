@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""下载 URL 文件并上传到华为云 OBS，预签名 URL 输出到 artifact（避免掩码）"""
+"""下载 URL 文件并上传到华为云 OBS，用 STS 临时凭证生成不掩码的预签名 URL"""
 
 import argparse
 import os
@@ -7,6 +7,28 @@ import sys
 import subprocess
 from pathlib import Path
 from urllib.parse import urlparse
+import requests
+
+
+def get_sts_credentials(ak, sk, region, duration=3600):
+    project_resp = requests.post(f'https://iam.{region}.myhuaweicloud.com/v3/auth/projects',
+        json={'auth': {'identity': {'methods': ['hw_ak_sk'],
+            'hw_ak_sk': {'access': {'key': ak}, 'secret': {'key': sk}}}}})
+    projects = project_resp.json().get('projects', [])
+    project_id = next((p['id'] for p in projects if p.get('name') == region), projects[0]['id'])
+
+    token_resp = requests.post(f'https://iam.{region}.myhuaweicloud.com/v3/auth/tokens', json={
+        'auth': {'identity': {'methods': ['hw_ak_sk'],
+            'hw_ak_sk': {'access': {'key': ak}, 'secret': {'key': sk}}},
+            'scope': {'project': {'id': project_id}}}
+    })
+    token = token_resp.headers['X-Subject-Token']
+
+    resp = requests.post(f'https://iam.{region}.myhuaweicloud.com/v3.0/OS-CREDENTIAL/securitytokens',
+        headers={'X-Auth-Token': token},
+        json={'auth': {'identity': {'methods': ['token'], 'token': {'duration_seconds': duration}}}})
+    c = resp.json()['credential']
+    return c['access'], c['secret'], c['securitytoken']
 
 
 def download_file(url, output_path, headers=None):
@@ -22,9 +44,9 @@ def download_file(url, output_path, headers=None):
     return size
 
 
-def upload_to_obs(local_path, obs_key, bucket, ak, sk, endpoint, region, expire_days=7):
+def upload_to_obs(local_path, obs_key, bucket, ak, sk, security_token, endpoint, region, expire_days=7):
     from obs import ObsClient, Lifecycle, Rule, Expiration
-    obs = ObsClient(access_key_id=ak, secret_access_key=sk, server=endpoint)
+    obs = ObsClient(access_key_id=ak, secret_access_key=sk, server=endpoint, security_token=security_token)
 
     print(f"Uploading to OBS: {bucket}/{obs_key}")
 
@@ -51,10 +73,9 @@ def upload_to_obs(local_path, obs_key, bucket, ak, sk, endpoint, region, expire_
         signed_resp = obs.createSignedUrl('GET', bucket, obs_key, expires=expire_seconds)
         signed_url = signed_resp.get('signedUrl')
 
-        Path("/tmp/download_link.txt").write_text(signed_url + "\n")
         print(f"\n{'='*60}")
         print(f"7-day download link (auto-deletes in {expire_days} days):")
-        print(f"  >> See artifact: download-link/download_link.txt <<")
+        print(f"{signed_url}")
         print(f"{'='*60}\n")
 
         return signed_url
@@ -66,7 +87,7 @@ def upload_to_obs(local_path, obs_key, bucket, ak, sk, endpoint, region, expire_
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Download URL and upload to OBS")
+    parser = argparse.ArgumentParser(description="Download URL and upload to OBS via STS")
     parser.add_argument("--url", required=True, help="URL to download")
     parser.add_argument("--obs-key", default="", help="Path under 下载/ (default: <filename>)")
     parser.add_argument("--bucket", default="xieyucheng", help="OBS bucket name")
@@ -97,7 +118,11 @@ def main():
     else:
         key = f"下载/{filename}"
 
-    upload_to_obs(output_path, key, args.bucket, args.obs_ak, args.obs_sk, endpoint, args.region)
+    print("Getting STS temporary credentials...")
+    temp_ak, temp_sk, temp_token = get_sts_credentials(args.obs_ak, args.obs_sk, args.region)
+    print(f"STS OK: temp AK={temp_ak}")
+
+    upload_to_obs(output_path, key, args.bucket, temp_ak, temp_sk, temp_token, endpoint, args.region)
 
     output_path.unlink(missing_ok=True)
     print("Done!")
