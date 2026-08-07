@@ -92,9 +92,10 @@ def main():
 
     size = download_file(args.url, output_path, headers)
 
-    key = args.obs_key if args.obs_key else filename
-    if not key.startswith("下载/") and not key.startswith("/"):
-        key = f"下载/{key}"
+    if args.obs_key:
+        key = args.obs_key if args.obs_key.startswith("下载/") else f"下载/{args.obs_key}"
+    else:
+        key = f"下载/{filename}"
 
     upload_to_obs(output_path, key, args.bucket, args.obs_ak, args.obs_sk, endpoint, args.region)
 
