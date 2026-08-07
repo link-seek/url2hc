@@ -24,7 +24,7 @@ def download_file(url, output_path, headers=None):
 
 
 def upload_to_obs(local_path, obs_key, bucket, ak, sk, endpoint, region, expire_days=7):
-    from obs import ObsClient
+    from obs import ObsClient, Lifecycle, Rule, Expiration
     obs = ObsClient(access_key_id=ak, secret_access_key=sk, server=endpoint)
 
     key = obs_key if obs_key else local_path.name
@@ -33,20 +33,31 @@ def upload_to_obs(local_path, obs_key, bucket, ak, sk, endpoint, region, expire_
     resp = obs.putFile(bucket, key, str(local_path))
     if resp.status < 300:
         print(f"Upload OK: status={resp.status}")
-        obs_url = f"https://{bucket}.obs.{region}.myhuaweicloud.com/{key}"
-        print(f"OBS URL: {obs_url}")
+
+        lc_resp = obs.getBucketLifecycle(bucket)
+        has_rule = False
+        if lc_resp.status < 300 and lc_resp.body:
+            rules = lc_resp.body.get('lifecycleConfig', {}).get('rule', [])
+            for r in rules:
+                if r.get('id') == 'auto-delete-download-7d':
+                    has_rule = True
+                    break
+        if not has_rule:
+            rule = Rule(id='auto-delete-download-7d', prefix='下载/', status='Enabled', expiration=Expiration(days=expire_days))
+            obs.setBucketLifecycle(bucket, Lifecycle(rule=[rule]))
+            print(f"Lifecycle rule set: 下载/ auto-delete after {expire_days} days")
+        else:
+            print(f"Lifecycle rule already exists: 下载/ auto-delete after {expire_days} days")
 
         expire_seconds = expire_days * 86400
-        signed_resp = obs.createSignedUrl(bucket, key, expires=expire_seconds)
-        if signed_resp.status < 300:
-            print(f"\n{'='*60}")
-            print(f"7-day download link (expires in {expire_days} days):")
-            print(f"{signed_resp.body.signedUrl}")
-            print(f"{'='*60}\n")
-        else:
-            print(f"Signed URL FAILED: status={signed_resp.status}")
+        signed_resp = obs.createSignedUrl('GET', bucket, key, expires=expire_seconds)
+        signed_url = signed_resp.get('signedUrl')
+        print(f"\n{'='*60}")
+        print(f"7-day download link (auto-deletes in {expire_days} days):")
+        print(f"{signed_url}")
+        print(f"{'='*60}\n")
 
-        return obs_url
+        return signed_url
     else:
         print(f"Upload FAILED: status={resp.status}, reason={resp.reason}")
         if resp.body:
