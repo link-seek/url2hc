@@ -11,22 +11,23 @@ import requests
 
 
 def get_sts_credentials(ak, sk, region, duration=3600):
-    project_resp = requests.post(f'https://iam.{region}.myhuaweicloud.com/v3/auth/projects',
-        json={'auth': {'identity': {'methods': ['hw_ak_sk'],
-            'hw_ak_sk': {'access': {'key': ak}, 'secret': {'key': sk}}}}})
-    projects = project_resp.json().get('projects', [])
-    project_id = next((p['id'] for p in projects if p.get('name') == region), projects[0]['id'])
-
-    token_resp = requests.post(f'https://iam.{region}.myhuaweicloud.com/v3/auth/tokens', json={
+    iam = f'https://iam.{region}.myhuaweicloud.com'
+    token_resp = requests.post(f'{iam}/v3/auth/tokens', json={
         'auth': {'identity': {'methods': ['hw_ak_sk'],
             'hw_ak_sk': {'access': {'key': ak}, 'secret': {'key': sk}}},
-            'scope': {'project': {'id': project_id}}}
+            'scope': {'project': {'name': region}}}
     })
+    if token_resp.status_code != 201:
+        print(f"Token request failed: {token_resp.status_code} {token_resp.text[:200]}")
+        sys.exit(1)
     token = token_resp.headers['X-Subject-Token']
 
-    resp = requests.post(f'https://iam.{region}.myhuaweicloud.com/v3.0/OS-CREDENTIAL/securitytokens',
+    resp = requests.post(f'{iam}/v3.0/OS-CREDENTIAL/securitytokens',
         headers={'X-Auth-Token': token},
         json={'auth': {'identity': {'methods': ['token'], 'token': {'duration_seconds': duration}}}})
+    if resp.status_code != 201:
+        print(f"STS request failed: {resp.status_code} {resp.text[:200]}")
+        sys.exit(1)
     c = resp.json()['credential']
     return c['access'], c['secret'], c['securitytoken']
 
