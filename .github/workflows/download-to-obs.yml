@@ -1,0 +1,56 @@
+name: Download to OBS
+
+on:
+  workflow_dispatch:
+    inputs:
+      url:
+        description: 'URL to download'
+        required: true
+      obs_key:
+        description: 'OBS target key (default: 下载/<filename>)'
+        required: false
+        default: ''
+      bucket:
+        description: 'OBS bucket name'
+        required: false
+        default: 'xieyucheng'
+      region:
+        description: 'OBS region'
+        required: false
+        default: 'cn-north-9'
+      header:
+        description: 'Extra header (e.g. "Authorization: Bearer xxx"), optional'
+        required: false
+        default: ''
+
+env:
+  OBS_AK: ${{ secrets.OBS_AK }}
+  OBS_SK: ${{ secrets.OBS_SK }}
+
+jobs:
+  download-and-upload:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install OBS SDK
+        run: pip install esdk-obs-python
+
+      - name: Download and upload
+        run: |
+          CMD="python scripts/upload_to_obs.py --url '${{ inputs.url }}' --bucket '${{ inputs.bucket }}' --region '${{ inputs.region }}'"
+          if [ -n "${{ inputs.obs_key }}" ]; then
+            CMD="$CMD --obs-key '${{ inputs.obs_key }}'"
+          fi
+          if [ -n "${{ inputs.header }}" ]; then
+            CMD="$CMD --header '${{ inputs.header }}'"
+          fi
+          echo "Running: $CMD"
+          eval $CMD
