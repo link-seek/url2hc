@@ -57,6 +57,10 @@ jobs:
           echo ""
           echo "================ 7-day download link ================"
           cat /tmp/download_link.txt
+          echo ""
+          echo "================ BASE64 (safe copy) ================"
+          base64 -w0 /tmp/download_link.txt
+          echo ""
           echo "======================================================"
 
       - name: Upload download link artifact
