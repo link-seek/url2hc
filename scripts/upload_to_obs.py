@@ -52,7 +52,13 @@ def upload_and_sign(local_path, obs_key, bucket, sts_ak, sts_sk, sts_token, perm
     obs_perm = ObsClient(access_key_id=perm_ak, secret_access_key=perm_sk, server=endpoint)
 
     print(f"Uploading to OBS: {bucket}/{obs_key}")
-    resp = obs_sts.putFile(bucket, obs_key, str(local_path))
+    import os
+    file_size = os.path.getsize(str(local_path))
+    if file_size > 5 * 1024 * 1024 * 1024:  # > 5GB, use multipart
+        print(f"Large file ({file_size:,} bytes), using multipart upload...")
+        resp = obs_sts.uploadFile(bucket, obs_key, str(local_path), taskNum=5, partSize=9*1024*1024*1024)
+    else:
+        resp = obs_sts.putFile(bucket, obs_key, str(local_path))
     if resp.status < 300:
         print(f"Upload OK: status={resp.status} (via STS temp AK={sts_ak})")
     else:
