@@ -54,6 +54,10 @@ jobs:
           fi
           echo "Running: $CMD"
           eval $CMD
+          echo ""
+          echo "================ 7-day download link ================"
+          cat /tmp/download_link.txt
+          echo "======================================================"
 
       - name: Upload download link artifact
         uses: actions/upload-artifact@v4
