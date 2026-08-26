@@ -24,12 +24,12 @@ gh workflow run download-to-obs.yml --repo link-seek/url2hc \
 
 ```bash
 gh workflow run img-to-swr.yml --repo link-seek/url2hc \
-  -f source_image="anomalyco/opencode:latest"
+  -f source_image="ghcr.io/anomalyco/opencode:latest"
 ```
 
 | 参数 | 必填 | 默认值 | 说明 |
 |------|------|--------|------|
-| `source_image` | 是 | `anomalyco/opencode:latest` | 源镜像地址 |
+| `source_image` | 是 | `ghcr.io/anomalyco/opencode:latest` | 源镜像地址 |
 | `target_name` | 否 | 源镜像 repo 名 | SWR 上的镜像名 |
 | `target_tag` | 否 | 源镜像 tag | SWR 上的标签 |
 
