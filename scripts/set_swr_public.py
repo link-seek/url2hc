@@ -38,7 +38,7 @@ def main():
         print(f"Set public error: {e}")
 
     # Set 7-day retention rule
-    tag_selector = RetentionSelector(kind="label", decoration="matches", pattern=".*")
+    tag_selector = RetentionSelector(kind="regexp", pattern=".*")
     rule = RetentionRule(
         template="date_rule",
         params={"days": str(args.expire_days)},
