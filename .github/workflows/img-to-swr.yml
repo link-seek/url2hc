@@ -1,0 +1,68 @@
+name: Image to SWR
+
+on:
+  workflow_dispatch:
+    inputs:
+      source_image:
+        description: 'Source image (e.g. anomalyco/opencode:latest)'
+        required: true
+        default: 'anomalyco/opencode:latest'
+      target_name:
+        description: 'Target image name in SWR'
+        required: false
+        default: ''
+      target_tag:
+        description: 'Target tag'
+        required: false
+        default: ''
+
+env:
+  SWR_REGISTRY: swr.cn-north-9.myhuaweicloud.com
+  SWR_NAMESPACE: link-seek
+
+jobs:
+  pull-and-push:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Login to SWR
+        run: |
+          echo "${{ secrets.SWR_LOGIN_PASS }}" | docker login ${{ env.SWR_REGISTRY }} -u "${{ secrets.SWR_LOGIN_USER }}" --password-stdin
+
+      - name: Pull source image
+        run: docker pull ${{ inputs.source_image }}
+
+      - name: Retag and push
+        run: |
+          SOURCE="${{ inputs.source_image }}"
+          REPO=$(echo "$SOURCE" | sed 's/:.*//')
+          TAG=$(echo "$SOURCE" | sed 's/.*://' | sed 's/^$/latest/')
+          BASENAME=$(basename "$REPO")
+
+          TARGET_NAME="${{ inputs.target_name }}"
+          TARGET_TAG="${{ inputs.target_tag }}"
+          [ -z "$TARGET_NAME" ] && TARGET_NAME="$BASENAME"
+          [ -z "$TARGET_TAG" ] && TARGET_TAG="$TAG"
+
+          TARGET="${{ env.SWR_REGISTRY }}/${{ env.SWR_NAMESPACE }}/${TARGET_NAME}:${TARGET_TAG}"
+          docker tag "$SOURCE" "$TARGET"
+          docker push "$TARGET"
+          echo "TARGET_NAME=$TARGET_NAME" >> $GITHUB_ENV
+          echo "TARGET=$TARGET" >> $GITHUB_ENV
+          echo "Pushed: $TARGET"
+
+      - name: Set image public & 7-day retention
+        run: |
+          pip install huaweicloud-sdk-swr
+          python scripts/set_swr_public.py \
+            --namespace "${{ env.SWR_NAMESPACE }}" \
+            --repo "$TARGET_NAME" \
+            --region "cn-north-9" \
+            --ak "${{ secrets.HCLOUD_AK }}" \
+            --sk "${{ secrets.HCLOUD_SK }}"
+        env:
+          HCLOUD_AK: ${{ secrets.HCLOUD_AK }}
+          HCLOUD_SK: ${{ secrets.HCLOUD_SK }}
