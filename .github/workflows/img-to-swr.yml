@@ -4,9 +4,9 @@ on:
   workflow_dispatch:
     inputs:
       source_image:
-        description: 'Source image (e.g. anomalyco/opencode:latest)'
+        description: 'Source image (e.g. ghcr.io/anomalyco/opencode:latest)'
         required: true
-        default: 'anomalyco/opencode:latest'
+        default: 'ghcr.io/anomalyco/opencode:latest'
       target_name:
         description: 'Target image name in SWR'
         required: false
@@ -28,9 +28,11 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Login to GHCR
+        run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u $ --password-stdin
+
       - name: Login to SWR
-        run: |
-          echo "${{ secrets.SWR_LOGIN_PASS }}" | docker login ${{ env.SWR_REGISTRY }} -u "${{ secrets.SWR_LOGIN_USER }}" --password-stdin
+        run: echo "${{ secrets.SWR_LOGIN_PASS }}" | docker login ${{ env.SWR_REGISTRY }} -u "${{ secrets.SWR_LOGIN_USER }}" --password-stdin
 
       - name: Pull source image
         run: docker pull ${{ inputs.source_image }}
@@ -40,7 +42,7 @@ jobs:
           SOURCE="${{ inputs.source_image }}"
           REPO=$(echo "$SOURCE" | sed 's/:.*//')
           TAG=$(echo "$SOURCE" | sed 's/.*://' | sed 's/^$/latest/')
-          BASENAME=$(basename "$REPO")
+          BASENAME=$(basename "$REPO" | sed 's/^opencode$/opencode/')
 
           TARGET_NAME="${{ inputs.target_name }}"
           TARGET_TAG="${{ inputs.target_tag }}"
@@ -56,13 +58,10 @@ jobs:
 
       - name: Set image public & 7-day retention
         run: |
-          pip install huaweicloud-sdk-swr
+          pip install huaweicloudsdkcore huaweicloudsdkswr
           python scripts/set_swr_public.py \
             --namespace "${{ env.SWR_NAMESPACE }}" \
             --repo "$TARGET_NAME" \
             --region "cn-north-9" \
             --ak "${{ secrets.HCLOUD_AK }}" \
             --sk "${{ secrets.HCLOUD_SK }}"
-        env:
-          HCLOUD_AK: ${{ secrets.HCLOUD_AK }}
-          HCLOUD_SK: ${{ secrets.HCLOUD_SK }}
