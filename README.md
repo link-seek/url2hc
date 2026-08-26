@@ -35,10 +35,6 @@ gh workflow run img-to-swr.yml --repo link-seek/url2hc \
 
 **输出**：镜像自动设为公开可拉取，并设置 7 天存活时间老化规则。
 
-拉取地址：`swr.cn-north-9.myhuaweicloud.com/link-seek/<镜像名>:<标签>`
+拉取地址：`swr.cn-north-4.myhuaweicloud.com/link-seek/<镜像名>:<标签>`
 
-## SWR 登录
-
-```bash
-docker login -u cn-north-9@HPUAJCDRH2SS4HYOAFK7 -p <token> swr.cn-north-9.myhuaweicloud.com
-```
+> 注意：SWR 镜像存储在 cn-north-4 区域。同区域 ECS 可内网拉取，跨区域需公网。
