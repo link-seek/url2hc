@@ -17,7 +17,7 @@ on:
         default: ''
 
 env:
-  SWR_REGISTRY: swr.cn-north-4.myhuaweicloud.com
+  SWR_REGISTRY: swr.cn-north-9.myhuaweicloud.com
   SWR_NAMESPACE: link-seek
 
 jobs:
@@ -62,6 +62,6 @@ jobs:
           python scripts/set_swr_public.py \
             --namespace "${{ env.SWR_NAMESPACE }}" \
             --repo "$TARGET_NAME" \
-            --region "cn-north-4" \
+            --region "cn-north-9" \
             --ak "${{ secrets.HCLOUD_AK }}" \
             --sk "${{ secrets.HCLOUD_SK }}"
