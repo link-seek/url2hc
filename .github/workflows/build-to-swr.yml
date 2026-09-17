@@ -1,0 +1,91 @@
+name: Build to SWR
+
+on:
+  workflow_dispatch:
+    inputs:
+      dockerfile_inline:
+        description: 'Dockerfile content (inline, alternative to url)'
+        required: false
+        default: ''
+      dockerfile_url:
+        description: 'Dockerfile URL (used when inline is empty)'
+        required: false
+        default: ''
+      target_name:
+        description: 'Target image name in SWR (required)'
+        required: true
+      target_tag:
+        description: 'Target tag'
+        required: false
+        default: 'latest'
+      build_args:
+        description: 'Build args, one KEY=VAL per line (optional)'
+        required: false
+        default: ''
+
+env:
+  SWR_REGISTRY: swr.cn-north-9.myhuaweicloud.com
+  SWR_NAMESPACE: link-seek
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Login to GHCR
+        run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u $ --password-stdin
+
+      - name: Login to SWR
+        run: echo "${{ secrets.SWR_LOGIN_PASS }}" | docker login ${{ env.SWR_REGISTRY }} -u "${{ secrets.SWR_LOGIN_USER }}" --password-stdin
+
+      - name: Prepare Dockerfile
+        env:
+          DOCKERFILE_INLINE: ${{ inputs.dockerfile_inline }}
+          DOCKERFILE_URL: ${{ inputs.dockerfile_url }}
+        run: |
+          set -e
+          mkdir -p /tmp/buildctx
+          if [ -n "$DOCKERFILE_INLINE" ]; then
+            printf '%s' "$DOCKERFILE_INLINE" > /tmp/buildctx/Dockerfile
+          elif [ -n "$DOCKERFILE_URL" ]; then
+            curl -fsSL "$DOCKERFILE_URL" -o /tmp/buildctx/Dockerfile
+          else
+            echo "ERROR: one of dockerfile_inline / dockerfile_url is required"
+            exit 1
+          fi
+          echo "----- Dockerfile -----"
+          cat /tmp/buildctx/Dockerfile
+          echo "----------------------"
+
+      - name: Build and push
+        env:
+          BUILD_ARGS_INPUT: ${{ inputs.build_args }}
+        run: |
+          set -e
+          TARGET="${{ env.SWR_REGISTRY }}/${{ env.SWR_NAMESPACE }}/${{ inputs.target_name }}:${{ inputs.target_tag }}"
+          BUILD_ARGS=""
+          if [ -n "$BUILD_ARGS_INPUT" ]; then
+            while IFS= read -r line; do
+              [ -z "$line" ] && continue
+              BUILD_ARGS="$BUILD_ARGS --build-arg $line"
+            done <<< "$BUILD_ARGS_INPUT"
+          fi
+          # shellcheck disable=SC2086
+          docker build -f /tmp/buildctx/Dockerfile $BUILD_ARGS -t "$TARGET" /tmp/buildctx
+          docker push "$TARGET"
+          echo "TARGET=$TARGET" >> $GITHUB_ENV
+          echo "TARGET_NAME=${{ inputs.target_name }}" >> $GITHUB_ENV
+          echo "Pushed: $TARGET"
+
+      - name: Set image public & 7-day retention
+        run: |
+          pip install huaweicloudsdkcore huaweicloudsdkswr
+          python scripts/set_swr_public.py \
+            --namespace "${{ env.SWR_NAMESPACE }}" \
+            --repo "$TARGET_NAME" \
+            --region "cn-north-9" \
+            --ak "${{ secrets.HCLOUD_AK }}" \
+            --sk "${{ secrets.HCLOUD_SK }}"
