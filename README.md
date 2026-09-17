@@ -37,4 +37,28 @@ gh workflow run img-to-swr.yml --repo link-seek/url2hc \
 
 拉取地址：`swr.cn-north-4.myhuaweicloud.com/link-seek/<镜像名>:<标签>`
 
+## 用法 - Dockerfile 构建并推送到 SWR
+
+```bash
+gh workflow run build-to-swr.yml --repo link-seek/url2hc \
+  -f target_name="markitdown" \
+  -f target_tag="0.1.7" \
+  -f dockerfile_url="https://example.com/Dockerfile"
+# 或直接内联 Dockerfile 内容：
+gh workflow run build-to-swr.yml --repo link-seek/url2hc \
+  -f target_name="markitdown" \
+  -f target_tag="0.1.7" \
+  -f dockerfile_inline="$(cat Dockerfile)"
+```
+
+| 参数 | 必填 | 默认值 | 说明 |
+|------|------|--------|------|
+| `dockerfile_inline` | 二选一 | - | Dockerfile 文本内容（与 url 二选一，优先用它） |
+| `dockerfile_url` | 二选一 | - | Dockerfile 下载地址（inline 为空时使用） |
+| `target_name` | 是 | - | SWR 上的镜像名 |
+| `target_tag` | 否 | `latest` | SWR 上的标签 |
+| `build_args` | 否 | - | 构建参数，多行 `KEY=VAL` |
+
+**输出**：同上，公开可拉取 + 7 天老化规则。
+
 > 注意：SWR 镜像存储在 cn-north-4 区域。同区域 ECS 可内网拉取，跨区域需公网。
