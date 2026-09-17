@@ -22,10 +22,18 @@ on:
         description: 'Build args, one KEY=VAL per line (optional)'
         required: false
         default: ''
-
-env:
-  SWR_REGISTRY: swr.cn-north-9.myhuaweicloud.com
-  SWR_NAMESPACE: link-seek
+      swr_registry:
+        description: 'SWR registry endpoint'
+        required: false
+        default: 'swr.cn-north-4.myhuaweicloud.com'
+      swr_namespace:
+        description: 'SWR namespace (org)'
+        required: false
+        default: 'link-seek'
+      swr_region:
+        description: 'SWR region for public/retention settings'
+        required: false
+        default: 'cn-north-4'
 
 jobs:
   build-and-push:
@@ -39,7 +47,7 @@ jobs:
         run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u $ --password-stdin
 
       - name: Login to SWR
-        run: echo "${{ secrets.SWR_LOGIN_PASS }}" | docker login ${{ env.SWR_REGISTRY }} -u "${{ secrets.SWR_LOGIN_USER }}" --password-stdin
+        run: echo "${{ secrets.SWR_LOGIN_PASS }}" | docker login ${{ inputs.swr_registry }} -u "${{ secrets.SWR_LOGIN_USER }}" --password-stdin
 
       - name: Prepare Dockerfile
         env:
@@ -65,7 +73,7 @@ jobs:
           BUILD_ARGS_INPUT: ${{ inputs.build_args }}
         run: |
           set -e
-          TARGET="${{ env.SWR_REGISTRY }}/${{ env.SWR_NAMESPACE }}/${{ inputs.target_name }}:${{ inputs.target_tag }}"
+          TARGET="${{ inputs.swr_registry }}/${{ inputs.swr_namespace }}/${{ inputs.target_name }}:${{ inputs.target_tag }}"
           BUILD_ARGS=""
           if [ -n "$BUILD_ARGS_INPUT" ]; then
             while IFS= read -r line; do
@@ -84,8 +92,8 @@ jobs:
         run: |
           pip install huaweicloudsdkcore huaweicloudsdkswr
           python scripts/set_swr_public.py \
-            --namespace "${{ env.SWR_NAMESPACE }}" \
+            --namespace "${{ inputs.swr_namespace }}" \
             --repo "$TARGET_NAME" \
-            --region "cn-north-9" \
+            --region "${{ inputs.swr_region }}" \
             --ak "${{ secrets.HCLOUD_AK }}" \
             --sk "${{ secrets.HCLOUD_SK }}"

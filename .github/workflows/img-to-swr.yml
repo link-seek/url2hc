@@ -17,7 +17,7 @@ on:
         default: ''
 
 env:
-  SWR_REGISTRY: swr.cn-north-9.myhuaweicloud.com
+  SWR_REGISTRY: swr.cn-north-4.myhuaweicloud.com
   SWR_NAMESPACE: link-seek
 
 jobs:
