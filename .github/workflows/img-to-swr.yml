@@ -15,6 +15,10 @@ on:
         description: 'Target tag'
         required: false
         default: ''
+      swr_region:
+        description: 'SWR region (must match SWR_REGISTRY below; was hardcoded cn-north-9 while pushing to cn-north-4)'
+        required: false
+        default: 'cn-north-4'
 
 env:
   SWR_REGISTRY: swr.cn-north-4.myhuaweicloud.com
@@ -62,6 +66,6 @@ jobs:
           python scripts/set_swr_public.py \
             --namespace "${{ env.SWR_NAMESPACE }}" \
             --repo "$TARGET_NAME" \
-            --region "cn-north-9" \
+            --region "${{ inputs.swr_region }}" \
             --ak "${{ secrets.HCLOUD_AK }}" \
             --sk "${{ secrets.HCLOUD_SK }}"

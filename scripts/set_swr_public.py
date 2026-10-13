@@ -31,11 +31,15 @@ def main():
     # Set repo public
     update_body = UpdateRepoRequestBody(is_public=True)
     request = UpdateRepoRequest(namespace=args.namespace, repository=args.repo, body=update_body)
+    failed = False
     try:
         resp = client.update_repo(request)
         print(f"Set {args.namespace}/{args.repo} public: OK")
     except Exception as e:
+        # Fail loud: a silent no-op here once left a repo private (wrong region),
+        # blocking all downstream pulls with Authenticate Error.
         print(f"Set public error: {e}")
+        failed = True
 
     # Set 7-day retention rule
     tag_selector = RetentionSelector(kind="regexp", pattern=".*")
@@ -55,8 +59,11 @@ def main():
             print(f"Retention rule already exists, skipping")
         else:
             print(f"Retention rule error: {e}")
+            failed = True
 
     print("Done!")
+    if failed:
+        sys.exit(1)
 
 
 if __name__ == "__main__":
