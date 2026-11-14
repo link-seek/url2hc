@@ -23,9 +23,9 @@ on:
         required: false
         default: ''
       swr_registry:
-        description: 'SWR registry endpoint'
+        description: 'SWR registry endpoint override (default: swr.<region>.myhuaweicloud.com)'
         required: false
-        default: 'swr.cn-north-4.myhuaweicloud.com'
+        default: ''
       swr_namespace:
         description: 'SWR namespace (org)'
         required: false
@@ -34,6 +34,19 @@ on:
         description: 'SWR region for public/retention settings'
         required: false
         default: 'cn-north-4'
+      is_public:
+        description: 'Make repo public'
+        required: false
+        default: true
+        type: boolean
+      expire_days:
+        description: 'Retention days (<=0 skips retention rule)'
+        required: false
+        default: '7'
+      tag_pattern:
+        description: 'Retention tag selector regexp'
+        required: false
+        default: '.*'
 
 jobs:
   build-and-push:
@@ -47,7 +60,14 @@ jobs:
         run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u $ --password-stdin
 
       - name: Login to SWR
-        run: echo "${{ secrets.SWR_LOGIN_PASS }}" | docker login ${{ inputs.swr_registry }} -u "${{ secrets.SWR_LOGIN_USER }}" --password-stdin
+        run: |
+          REGISTRY="${{ inputs.swr_registry }}"
+          [ -z "$REGISTRY" ] && REGISTRY="swr.${{ inputs.swr_region }}.myhuaweicloud.com"
+          U="${{ secrets.SWR_LOGIN_USER_9 }}"; P="${{ secrets.SWR_LOGIN_PASS_9 }}"
+          [ "${{ inputs.swr_region }}" = "cn-north-4" ] && { U="${{ secrets.SWR_LOGIN_USER }}"; P="${{ secrets.SWR_LOGIN_PASS }}"; }
+          [ -n "$U" ] && [ -n "$P" ] || { echo "FAIL: no SWR creds for region ${{ inputs.swr_region }}"; exit 1; }
+          echo "$P" | docker login "$REGISTRY" -u "$U" --password-stdin
+          echo "REGISTRY=$REGISTRY" >> $GITHUB_ENV
 
       - name: Prepare Dockerfile
         env:
@@ -73,7 +93,7 @@ jobs:
           BUILD_ARGS_INPUT: ${{ inputs.build_args }}
         run: |
           set -e
-          TARGET="${{ inputs.swr_registry }}/${{ inputs.swr_namespace }}/${{ inputs.target_name }}:${{ inputs.target_tag }}"
+          TARGET="${{ env.REGISTRY }}/${{ inputs.swr_namespace }}/${{ inputs.target_name }}:${{ inputs.target_tag }}"
           BUILD_ARGS=""
           if [ -n "$BUILD_ARGS_INPUT" ]; then
             while IFS= read -r line; do
@@ -88,12 +108,16 @@ jobs:
           echo "TARGET_NAME=${{ inputs.target_name }}" >> $GITHUB_ENV
           echo "Pushed: $TARGET"
 
-      - name: Set image public & 7-day retention
+      - name: Set image visibility & retention
         run: |
           pip install huaweicloudsdkcore huaweicloudsdkswr
+          if [ "${{ inputs.is_public }}" = "true" ]; then PUBLIC_FLAG="--public"; else PUBLIC_FLAG="--no-public"; fi
           python scripts/set_swr_public.py \
             --namespace "${{ inputs.swr_namespace }}" \
             --repo "$TARGET_NAME" \
             --region "${{ inputs.swr_region }}" \
+            --expire-days "${{ inputs.expire_days }}" \
+            --tag-pattern "${{ inputs.tag_pattern }}" \
+            $PUBLIC_FLAG \
             --ak "${{ secrets.HCLOUD_AK }}" \
             --sk "${{ secrets.HCLOUD_SK }}"

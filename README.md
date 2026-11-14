@@ -1,6 +1,6 @@
 # url2hc
 
-URL/镜像中转到华为云（OBS + SWR）。
+URL/镜像中转到华为云（OBS + SWR）。全部硬编码均已参数化，默认值保持向后兼容。
 
 ## 用法 - 文件下载到 OBS
 
@@ -13,12 +13,15 @@ gh workflow run download-to-obs.yml --repo link-seek/url2hc \
 | 参数 | 必填 | 默认值 | 说明 |
 |------|------|--------|------|
 | `url` | 是 | - | 下载地址 |
-| `obs_key` | 否 | `<文件名>` | `下载/` 下的相对路径 |
+| `obs_key` | 否 | `<文件名>` | `<prefix>` 下的相对路径 |
 | `bucket` | 否 | `xieyucheng` | OBS 桶名 |
 | `region` | 否 | `cn-north-9` | OBS 区域 |
+| `prefix` | 否 | `下载/` | OBS key 前缀（空=桶根） |
+| `expire_days` | 否 | `7` | 自动删除+签名天数（`<=0` 永久保留） |
+| `endpoint` | 否 | - | OBS endpoint 覆盖（缺省 `obs.<region>.myhuaweicloud.com`） |
 | `header` | 否 | - | 额外请求头，如 `Authorization: Bearer xxx` |
 
-**输出**：Workflow 日志输出 7 天有效的预签名下载链接，文件 7 天后自动删除。
+**输出**：Workflow 日志输出预签名下载链接（默认 7 天有效），文件到期自动删除。
 
 ## 用法 - 镜像中转到 SWR
 
@@ -32,11 +35,14 @@ gh workflow run img-to-swr.yml --repo link-seek/url2hc \
 | `source_image` | 是 | `ghcr.io/anomalyco/opencode:latest` | 源镜像地址 |
 | `target_name` | 否 | 源镜像 repo 名 | SWR 上的镜像名 |
 | `target_tag` | 否 | 源镜像 tag | SWR 上的标签 |
-| `swr_region` | 否 | `cn-north-9` | SWR 区域（registry、登录、公开+老化全跟着走；`cn-north-9` 或 `cn-north-4`） |
+| `swr_region` | 否 | `cn-north-9` | SWR 区域（登录、公开+老化全跟着走） |
+| `swr_registry` | 否 | - | registry 覆盖（缺省 `swr.<region>.myhuaweicloud.com`） |
+| `swr_namespace` | 否 | `link-seek` | SWR 组织名 |
+| `is_public` | 否 | `true` | 是否公开可拉取 |
+| `expire_days` | 否 | `7` | 老化天数（`<=0` 跳过老化规则） |
+| `tag_pattern` | 否 | `.*` | 老化 tag 正则 |
 
-**输出**：镜像自动设为公开可拉取，并设置 7 天存活时间老化规则。
-
-拉取地址：`swr.<区域>.myhuaweicloud.com/link-seek/<镜像名>:<标签>`，区域即 `swr_region` 参数。
+拉取地址：`<registry>/<namespace>/<镜像名>:<标签>`。
 
 > 注意：SWR 按区域隔离存储。同区域 ECS 可内网拉取，跨区域需公网。k3s 在 `cn-north-9`，默认 `swr_region=cn-north-9`。
 
@@ -61,7 +67,11 @@ gh workflow run build-to-swr.yml --repo link-seek/url2hc \
 | `target_name` | 是 | - | SWR 上的镜像名 |
 | `target_tag` | 否 | `latest` | SWR 上的标签 |
 | `build_args` | 否 | - | 构建参数，多行 `KEY=VAL` |
+| `swr_registry` | 否 | - | registry 覆盖（缺省 `swr.<region>.myhuaweicloud.com`） |
+| `swr_namespace` | 否 | `link-seek` | SWR 组织名 |
+| `swr_region` | 否 | `cn-north-4` | 公开+老化用的区域 |
+| `is_public` | 否 | `true` | 是否公开可拉取 |
+| `expire_days` | 否 | `7` | 老化天数（`<=0` 跳过） |
+| `tag_pattern` | 否 | `.*` | 老化 tag 正则 |
 
-**输出**：同上，公开可拉取 + 7 天老化规则。
-
-> 注意：SWR 镜像存储在 cn-north-4 区域。同区域 ECS 可内网拉取，跨区域需公网。
+> 注意：SWR 按区域隔离存储。同区域 ECS 可内网拉取，跨区域需公网。

@@ -7,7 +7,7 @@ on:
         description: 'URL to download'
         required: true
       obs_key:
-        description: 'Path under 下载/ (default: <filename>)'
+        description: 'Path under <prefix> (default: <filename>)'
         required: false
         default: ''
       bucket:
@@ -18,6 +18,18 @@ on:
         description: 'OBS region'
         required: false
         default: 'cn-north-9'
+      prefix:
+        description: 'OBS key prefix (empty = bucket root)'
+        required: false
+        default: '下载/'
+      expire_days:
+        description: 'Auto-delete + signed-URL days (<=0 keeps permanently)'
+        required: false
+        default: '7'
+      endpoint:
+        description: 'OBS endpoint override (default: obs.<region>.myhuaweicloud.com)'
+        required: false
+        default: ''
       header:
         description: 'Extra header (e.g. "Authorization: Bearer xxx"), optional'
         required: false
@@ -41,13 +53,16 @@ jobs:
           python-version: '3.12'
 
       - name: Install dependencies
-        run: pip install esdk-obs-python requests
+        run: pip install esdk-obs-python
 
       - name: Download and upload
         run: |
-          CMD="python scripts/upload_to_obs.py --url '${{ inputs.url }}' --bucket '${{ inputs.bucket }}' --region '${{ inputs.region }}'"
+          CMD="python scripts/upload_to_obs.py --url '${{ inputs.url }}' --bucket '${{ inputs.bucket }}' --region '${{ inputs.region }}' --prefix '${{ inputs.prefix }}' --expire-days '${{ inputs.expire_days }}'"
           if [ -n "${{ inputs.obs_key }}" ]; then
             CMD="$CMD --obs-key '${{ inputs.obs_key }}'"
+          fi
+          if [ -n "${{ inputs.endpoint }}" ]; then
+            CMD="$CMD --endpoint '${{ inputs.endpoint }}'"
           fi
           if [ -n "${{ inputs.header }}" ]; then
             CMD="$CMD --header '${{ inputs.header }}'"
@@ -55,7 +70,7 @@ jobs:
           echo "Running: $CMD"
           eval $CMD
           echo ""
-          echo "================ 7-day download link ================"
+          echo "================ ${{ inputs.expire_days }}-day download link ================"
           cat /tmp/download_link.txt
           echo ""
           echo "================ BASE64 (safe copy) ================"

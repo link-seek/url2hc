@@ -8,20 +8,38 @@ on:
         required: true
         default: 'ghcr.io/anomalyco/opencode:latest'
       target_name:
-        description: 'Target image name in SWR'
+        description: 'Target image name in SWR (default: source repo basename)'
         required: false
         default: ''
       target_tag:
-        description: 'Target tag'
+        description: 'Target tag (default: source tag)'
         required: false
         default: ''
       swr_region:
-        description: 'SWR region (registry/namespace/login all follow this; e.g. cn-north-9 or cn-north-4)'
+        description: 'SWR region (registry/login/public+retention all follow this unless registry overridden)'
         required: false
         default: 'cn-north-9'
-
-env:
-  SWR_NAMESPACE: link-seek
+      swr_registry:
+        description: 'SWR registry endpoint override (default: swr.<region>.myhuaweicloud.com)'
+        required: false
+        default: ''
+      swr_namespace:
+        description: 'SWR namespace (org)'
+        required: false
+        default: 'link-seek'
+      is_public:
+        description: 'Make repo public'
+        required: false
+        default: true
+        type: boolean
+      expire_days:
+        description: 'Retention days (<=0 skips retention rule)'
+        required: false
+        default: '7'
+      tag_pattern:
+        description: 'Retention tag selector regexp'
+        required: false
+        default: '.*'
 
 jobs:
   pull-and-push:
@@ -36,10 +54,13 @@ jobs:
 
       - name: Login to SWR
         run: |
+          REGISTRY="${{ inputs.swr_registry }}"
+          [ -z "$REGISTRY" ] && REGISTRY="swr.${{ inputs.swr_region }}.myhuaweicloud.com"
           U="${{ secrets.SWR_LOGIN_USER_9 }}"; P="${{ secrets.SWR_LOGIN_PASS_9 }}"
           [ "${{ inputs.swr_region }}" = "cn-north-4" ] && { U="${{ secrets.SWR_LOGIN_USER }}"; P="${{ secrets.SWR_LOGIN_PASS }}"; }
           [ -n "$U" ] && [ -n "$P" ] || { echo "FAIL: no SWR creds for region ${{ inputs.swr_region }}"; exit 1; }
-          echo "$P" | docker login swr.${{ inputs.swr_region }}.myhuaweicloud.com -u "$U" --password-stdin
+          echo "$P" | docker login "$REGISTRY" -u "$U" --password-stdin
+          echo "REGISTRY=$REGISTRY" >> $GITHUB_ENV
 
       - name: Pull source image
         run: docker pull ${{ inputs.source_image }}
@@ -56,19 +77,23 @@ jobs:
           [ -z "$TARGET_NAME" ] && TARGET_NAME="$BASENAME"
           [ -z "$TARGET_TAG" ] && TARGET_TAG="$TAG"
 
-          TARGET="swr.${{ inputs.swr_region }}.myhuaweicloud.com/${{ env.SWR_NAMESPACE }}/${TARGET_NAME}:${TARGET_TAG}"
+          TARGET="${{ env.REGISTRY }}/${{ inputs.swr_namespace }}/${TARGET_NAME}:${TARGET_TAG}"
           docker tag "$SOURCE" "$TARGET"
           docker push "$TARGET"
           echo "TARGET_NAME=$TARGET_NAME" >> $GITHUB_ENV
           echo "TARGET=$TARGET" >> $GITHUB_ENV
           echo "Pushed: $TARGET"
 
-      - name: Set image public & 7-day retention
+      - name: Set image visibility & retention
         run: |
           pip install huaweicloudsdkcore huaweicloudsdkswr
+          if [ "${{ inputs.is_public }}" = "true" ]; then PUBLIC_FLAG="--public"; else PUBLIC_FLAG="--no-public"; fi
           python scripts/set_swr_public.py \
-            --namespace "${{ env.SWR_NAMESPACE }}" \
+            --namespace "${{ inputs.swr_namespace }}" \
             --repo "$TARGET_NAME" \
             --region "${{ inputs.swr_region }}" \
+            --expire-days "${{ inputs.expire_days }}" \
+            --tag-pattern "${{ inputs.tag_pattern }}" \
+            $PUBLIC_FLAG \
             --ak "${{ secrets.HCLOUD_AK }}" \
             --sk "${{ secrets.HCLOUD_SK }}"
