@@ -35,7 +35,12 @@ jobs:
         run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u $ --password-stdin
 
       - name: Login to SWR
-        run: echo "${{ secrets.SWR_LOGIN_PASS }}" | docker login swr.${{ inputs.swr_region }}.myhuaweicloud.com -u "${{ secrets.SWR_LOGIN_USER }}" --password-stdin
+        # 组织 _9 私有（url2hc 仓不可见）→ 回落仓级同名 secret；公开后删回落。
+        run: |
+          U="${{ secrets.SWR_LOGIN_USER_9 }}"; P="${{ secrets.SWR_LOGIN_PASS_9 }}"
+          [ -z "$U" ] && U="${{ secrets.SWR_LOGIN_USER }}"; [ -z "$P" ] && P="${{ secrets.SWR_LOGIN_PASS }}"
+          [ -n "$U" ] && [ -n "$P" ] || { echo "FAIL: no SWR creds for region ${{ inputs.swr_region }}"; exit 1; }
+          echo "$P" | docker login swr.${{ inputs.swr_region }}.myhuaweicloud.com -u "$U" --password-stdin
 
       - name: Pull source image
         run: docker pull ${{ inputs.source_image }}
