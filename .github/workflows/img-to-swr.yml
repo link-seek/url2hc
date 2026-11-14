@@ -16,12 +16,11 @@ on:
         required: false
         default: ''
       swr_region:
-        description: 'SWR region (must match SWR_REGISTRY below; was hardcoded cn-north-9 while pushing to cn-north-4)'
+        description: 'SWR region (registry/namespace/login all follow this; e.g. cn-north-9 or cn-north-4)'
         required: false
-        default: 'cn-north-4'
+        default: 'cn-north-9'
 
 env:
-  SWR_REGISTRY: swr.cn-north-4.myhuaweicloud.com
   SWR_NAMESPACE: link-seek
 
 jobs:
@@ -36,7 +35,7 @@ jobs:
         run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u $ --password-stdin
 
       - name: Login to SWR
-        run: echo "${{ secrets.SWR_LOGIN_PASS }}" | docker login ${{ env.SWR_REGISTRY }} -u "${{ secrets.SWR_LOGIN_USER }}" --password-stdin
+        run: echo "${{ secrets.SWR_LOGIN_PASS }}" | docker login swr.${{ inputs.swr_region }}.myhuaweicloud.com -u "${{ secrets.SWR_LOGIN_USER }}" --password-stdin
 
       - name: Pull source image
         run: docker pull ${{ inputs.source_image }}
@@ -53,7 +52,7 @@ jobs:
           [ -z "$TARGET_NAME" ] && TARGET_NAME="$BASENAME"
           [ -z "$TARGET_TAG" ] && TARGET_TAG="$TAG"
 
-          TARGET="${{ env.SWR_REGISTRY }}/${{ env.SWR_NAMESPACE }}/${TARGET_NAME}:${TARGET_TAG}"
+          TARGET="swr.${{ inputs.swr_region }}.myhuaweicloud.com/${{ env.SWR_NAMESPACE }}/${TARGET_NAME}:${TARGET_TAG}"
           docker tag "$SOURCE" "$TARGET"
           docker push "$TARGET"
           echo "TARGET_NAME=$TARGET_NAME" >> $GITHUB_ENV

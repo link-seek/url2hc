@@ -32,10 +32,13 @@ gh workflow run img-to-swr.yml --repo link-seek/url2hc \
 | `source_image` | 是 | `ghcr.io/anomalyco/opencode:latest` | 源镜像地址 |
 | `target_name` | 否 | 源镜像 repo 名 | SWR 上的镜像名 |
 | `target_tag` | 否 | 源镜像 tag | SWR 上的标签 |
+| `swr_region` | 否 | `cn-north-9` | SWR 区域（registry、登录、公开+老化全跟着走；`cn-north-9` 或 `cn-north-4`） |
 
 **输出**：镜像自动设为公开可拉取，并设置 7 天存活时间老化规则。
 
-拉取地址：`swr.cn-north-4.myhuaweicloud.com/link-seek/<镜像名>:<标签>`
+拉取地址：`swr.<区域>.myhuaweicloud.com/link-seek/<镜像名>:<标签>`，区域即 `swr_region` 参数。
+
+> 注意：SWR 按区域隔离存储。同区域 ECS 可内网拉取，跨区域需公网。k3s 在 `cn-north-9`，默认 `swr_region=cn-north-9`。
 
 ## 用法 - Dockerfile 构建并推送到 SWR
 
