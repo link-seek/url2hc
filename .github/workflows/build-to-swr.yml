@@ -60,13 +60,18 @@ jobs:
         run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u $ --password-stdin
 
       - name: Login to SWR
+        env:
+          HUAWEI_AK: ${{ secrets.PROD_HCLOUD_AK }}
+          HUAWEI_SK: ${{ secrets.PROD_HCLOUD_SK }}
         run: |
+          set -e
           REGISTRY="${{ inputs.swr_registry }}"
           [ -z "$REGISTRY" ] && REGISTRY="swr.${{ inputs.swr_region }}.myhuaweicloud.com"
-          U="${{ secrets.SWR_LOGIN_USER_9 }}"; P="${{ secrets.SWR_LOGIN_PASS_9 }}"
-          [ "${{ inputs.swr_region }}" = "cn-north-4" ] && { U="${{ secrets.SWR_LOGIN_USER }}"; P="${{ secrets.SWR_LOGIN_PASS }}"; }
-          [ -n "$U" ] && [ -n "$P" ] || { echo "FAIL: no SWR creds for region ${{ inputs.swr_region }}"; exit 1; }
-          echo "$P" | docker login "$REGISTRY" -u "$U" --password-stdin
+          [ -n "$HUAWEI_AK" ] && [ -n "$HUAWEI_SK" ] || { echo "FAIL: missing PROD_HCLOUD_AK/SK"; exit 1; }
+          LOGIN_KEY=$(printf '%s' "$HUAWEI_AK" | openssl dgst -binary -sha256 -hmac "$HUAWEI_SK" | od -An -vtx1 | tr -d ' \n')
+          [ -n "$LOGIN_KEY" ] || { echo "FAIL: derive login key"; exit 1; }
+          echo "::add-mask::$LOGIN_KEY"
+          echo "$LOGIN_KEY" | docker login -u "${{ inputs.swr_region }}@${HUAWEI_AK}" --password-stdin "$REGISTRY" 2>&1 | tail -1
           echo "REGISTRY=$REGISTRY" >> $GITHUB_ENV
 
       - name: Prepare Dockerfile
