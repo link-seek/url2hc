@@ -104,8 +104,8 @@ def main():
     parser.add_argument("--endpoint", default="", help="OBS endpoint override (default: obs.<region>.myhuaweicloud.com)")
     parser.add_argument("--rule-id", default="", help="Lifecycle rule id (default: auto-derived)")
     parser.add_argument("--output", default="/tmp/download_link.txt", help="Where to write signed URL")
-    parser.add_argument("--obs-ak", default=os.environ.get("OBS_AK"), help="OBS AK (or env OBS_AK)")
-    parser.add_argument("--obs-sk", default=os.environ.get("OBS_SK"), help="OBS SK (or env OBS_SK)")
+    parser.add_argument("--obs-ak", default=os.environ.get("OBS_AK") or os.environ.get("PROD_HCLOUD_AK"), help="OBS AK (or env OBS_AK/PROD_HCLOUD_AK)")
+    parser.add_argument("--obs-sk", default=os.environ.get("OBS_SK") or os.environ.get("PROD_HCLOUD_SK"), help="OBS SK (or env OBS_SK/PROD_HCLOUD_SK)")
     parser.add_argument("--header", action="append", default=[], help="Extra header")
     args = parser.parse_args()
 

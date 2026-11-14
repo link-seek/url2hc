@@ -20,8 +20,8 @@ def main():
     parser.add_argument("--namespace", required=True)
     parser.add_argument("--repo", required=True)
     parser.add_argument("--region", default="cn-north-4")
-    parser.add_argument("--ak", default=os.environ.get("HCLOUD_AK"))
-    parser.add_argument("--sk", default=os.environ.get("HCLOUD_SK"))
+    parser.add_argument("--ak", default=os.environ.get("HCLOUD_AK") or os.environ.get("PROD_HCLOUD_AK"))
+    parser.add_argument("--sk", default=os.environ.get("HCLOUD_SK") or os.environ.get("PROD_HCLOUD_SK"))
     parser.add_argument("--expire-days", type=int, default=7,
                         help="Retention days; <=0 skips retention rule")
     parser.add_argument("--tag-pattern", default=".*",
