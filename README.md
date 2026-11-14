@@ -21,7 +21,14 @@ gh workflow run download-to-obs.yml --repo link-seek/url2hc \
 | `endpoint` | 否 | - | OBS endpoint 覆盖（缺省 `obs.<region>.myhuaweicloud.com`） |
 | `header` | 否 | - | 额外请求头，如 `Authorization: Bearer xxx` |
 
-**输出**：Workflow 日志输出预签名下载链接（默认 7 天有效），文件到期自动删除。
+**输出**：预签名下载链接（默认 7 天有效），文件到期自动删除。取链接二选一（日志明文被 GitHub 脱敏 AK，不可用）：
+
+```bash
+# 1) 日志里复制 BASE64 行再解码
+base64 -d <<< '<BASE64>'
+# 2) 或直接下载 run 的 download-link artifact（原链接）
+gh run download <run-id> --repo link-seek/url2hc -n download-link
+```
 
 ## 用法 - 镜像中转到 SWR
 
