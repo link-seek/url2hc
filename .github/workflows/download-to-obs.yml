@@ -70,12 +70,12 @@ jobs:
           echo "Running: $CMD"
           eval $CMD
           echo ""
-          echo "================ ${{ inputs.expire_days }}-day download link ================"
-          cat /tmp/download_link.txt
+          echo "NOTE: plain URL is masked by GitHub (AK -> ***); use BASE64 below or the download-link artifact:"
           echo ""
           echo "================ BASE64 (safe copy) ================"
           base64 -w0 /tmp/download_link.txt
           echo ""
+          echo "decode: base64 -d <<< '<above>'"
           echo "======================================================"
 
       - name: Upload download link artifact
