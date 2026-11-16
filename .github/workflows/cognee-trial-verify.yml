@@ -1,0 +1,37 @@
+name: cognee-trial-verify
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/cognee-trial-verify.yml'
+  workflow_dispatch:
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Pull image
+        run: docker pull cognee/cognee-mcp:main
+
+      - name: Boot MCP server
+        run: |
+          set -e
+          docker run -d --name cognee-trial -e TRANSPORT_MODE=http -p 8000:8000 cognee/cognee-mcp:main
+          sleep 25
+          docker ps --filter name=cognee-trial
+          echo "=== logs ==="
+          docker logs cognee-trial 2>&1 | tail -40 || true
+
+      - name: Probe endpoints
+        run: |
+          for p in /health / /api/v1/health /mcp; do
+            code=$(curl -s -o /dev/null -w "%{http_code}" -m 10 "http://localhost:8000$p" || echo "000")
+            echo "$p -> $code"
+          done
+          echo "=== container still up? ==="
+          docker inspect -f '{{.State.Status}}' cognee-trial
+
+      - name: Cleanup
+        if: always()
+        run: docker rm -f cognee-trial || true
