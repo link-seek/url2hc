@@ -57,7 +57,7 @@ jobs:
           HUAWEI_AK: ${{ secrets.PROD_HCLOUD_AK }}
           HUAWEI_SK: ${{ secrets.PROD_HCLOUD_SK }}
         run: |
-          set -e
+          set -eo pipefail
           REGISTRY="${{ inputs.swr_registry }}"
           [ -z "$REGISTRY" ] && REGISTRY="swr.${{ inputs.swr_region }}.myhuaweicloud.com"
           [ -n "$HUAWEI_AK" ] && [ -n "$HUAWEI_SK" ] || { echo "FAIL: missing PROD_HCLOUD_AK/SK"; exit 1; }
@@ -65,6 +65,7 @@ jobs:
           [ -n "$LOGIN_KEY" ] || { echo "FAIL: derive login key"; exit 1; }
           echo "::add-mask::$LOGIN_KEY"
           echo "$LOGIN_KEY" | docker login -u "${{ inputs.swr_region }}@${HUAWEI_AK}" --password-stdin "$REGISTRY" 2>&1 | tail -1
+          echo "SWR login OK: $REGISTRY"
           echo "REGISTRY=$REGISTRY" >> $GITHUB_ENV
 
       - name: Pull source image
